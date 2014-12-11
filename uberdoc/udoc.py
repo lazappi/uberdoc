@@ -115,8 +115,8 @@ class Uberdoc:
 
 
 
-    def generate_doc(self, files, pdf=False, verbose=False):
-        """Calls pandoc to generate html, and optionally PDF docs"""
+    def generate_doc(self, files, pdf=False, tex=False, verbose=False):
+        """Calls pandoc to generate html, and optionally PDF or Tex docs"""
         file_list = " ".join(files)
 
         out_file = path.join(path.abspath(self.out_dir), self.conf["doc_filename"])
@@ -162,6 +162,28 @@ class Uberdoc:
                                  "-o",
                                  out_file + ".pdf"])
             self.cmd(build_cmd, cwd=pandoc_wd, verbose=verbose)
+
+        # build tex in addition, if required
+        if tex:
+            # check if doc dir has tex template, if not use default
+            tex_template = path.abspath(
+                path.join(self.conf["doc_dir"], "templates", "default.tex"))
+            if path.isfile(tex_template):
+                template = ' --template=' + tex_template
+            else:
+                template = ' --template=' + \
+                    resource_filename(__name__, "templates/default.tex")
+
+            build_cmd = " ".join([
+                                 self.conf["pandoc_cmd"],
+                                 self.conf["pandoc_options_pdf"],
+                                 ' -V VERSION:"{0}" '.format(self.version()),
+                                 template,
+                                 file_list,
+                                 "-o",
+                                 out_file + ".tex"])
+            self.cmd(build_cmd, cwd=pandoc_wd, verbose=verbose)
+
 
     def clean(self, recreate_out=False):
         """Recreates out_dir"""
@@ -263,7 +285,7 @@ class Uberdoc:
                     if should_remove == "y":
                         shutil.rmtree(chapter_dir)
 
-    def build(self, pdf=False, verbose=False):
+    def build(self, pdf=False, tex=False, verbose=False):
         """Calls all steps of the doc build process"""
         print("Check environment ...")
         self.check_env(verbose=verbose)
@@ -282,7 +304,7 @@ class Uberdoc:
         self.preprocess(files)
 
         print("Generating document ...")
-        self.generate_doc(files, pdf=pdf, verbose=verbose)
+        self.generate_doc(files, pdf=pdf, tex=tex, verbose=verbose)
 
         cprint("Done ...", "green")
 
@@ -434,6 +456,11 @@ def main():
         help="also creates a PDF version",
         action="store_true")
     parser_build.add_argument(
+        "-t",
+        "--tex",
+        help="also creates a Latex version",
+        action="store_true")
+    parser_build.add_argument(
         "-v",
         "--verbose",
         help="gives more details on what is happening during conversion",
@@ -467,7 +494,7 @@ def main():
 
     args = parser.parse_args()
     if args.func == uberdoc.build:
-        uberdoc.build(pdf=args.pdf, verbose=args.verbose)
+        uberdoc.build(pdf=args.pdf, tex=args.tex, verbose=args.verbose)
     elif args.func == uberdoc.outline:
         uberdoc.outline(delete=args.delete)
     else:
